@@ -63,21 +63,25 @@ class LiteORM(object):
             # Strings are quoted in sql
             return "'%s'" % (value)
 
-    def create_table(self, model):
+    def create_table(self):
         """
         Create table for given model class definition
 
         Any attributes that are None are assumed to be string type for now.
         """
 
-        table_name = model.__class__.__name__
+        table_name = self.__class__.__name__
 
         # Create mapping of attribute name and type
         attrs = {}
-        for name, value in model.__dict__.iteritems():
+        for name, value in self.__dict__.iteritems():
             if isinstance(value, int):
                 if name == 'id':
                     attrs[name] = 'integer primary key autoincrement'
+                elif name.endswith('_id'):
+                    attrs[name] = 'integer'
+                    key = 'foreign key(%s)' % (name)
+                    attrs[key] = 'references %s(id)' % (name.strip('_id'))
                 else:
                     attrs[name] = 'integer'
             elif isinstance(value, str) or value is None:
@@ -101,18 +105,18 @@ class LiteORM(object):
         self._cursor.execute('drop table %s' % (table_name))
         self._connection.commit()
 
-    def insert(self, model):
+    def insert(self):
         """
-        Insert given model instance into database
+        Insert instance into database
 
         Model instance will have .id attribute filled out after successful
         insertion.
         """
 
-        table_name = model.__class__.__name__
+        table_name = self.__class__.__name__
 
         attrs = {}
-        for name, value in model.__dict__.iteritems():
+        for name, value in self.__dict__.iteritems():
             if name == 'id':
                 continue
 
@@ -127,17 +131,17 @@ class LiteORM(object):
         self._cursor.execute(insert_cmd)
         self._connection.commit()
 
-        model.id = self._cursor.lastrowid
+        self.id = self._cursor.lastrowid
 
-        return model
+        return self
 
-    def update(self, model):
-        """Update given model instance in database"""
+    def update(self):
+        """Update instance in database"""
 
-        table_name = model.__class__.__name__
+        table_name = self.__class__.__name__
 
         fields = []
-        for name, value in model.__dict__.iteritems():
+        for name, value in self.__dict__.iteritems():
             if name == 'id':
                 continue
 
@@ -148,19 +152,19 @@ class LiteORM(object):
         # FIXME: Optimize and only update changed values?
         # FIXME: Handle errors
         update_cmd = 'update %s set %s where id=%d' % (table_name, field_str,
-                                                       model.id)
+                                                       self.id)
         self._cursor.execute(update_cmd)
         self._connection.commit()
 
-    def delete(self, model):
-        """Delete given model instance from database"""
+    def delete(self):
+        """Delete instance from database"""
 
         self._cursor.execute('delete from %s where id=%d' % (
-                                                    model.__class__.__name__,
-                                                    model.id))
+                                                    self.__class__.__name__,
+                                                    self.id))
 
-    def select(self, model_class, where=None, order=None):
-        """Select objects from model_class with where and order clauses"""
+    def select(self, where=None, order=None):
+        """Select objects with where and order clauses"""
 
         if where is None:
             where = ''
@@ -172,14 +176,14 @@ class LiteORM(object):
         else:
             order = ''.join(['order by ', order])
 
-        attrs = inspect.getargspec(model_class.__init__.__func__).args
+        attrs = inspect.getargspec(self.__init__.__func__).args
         attrs.remove('self')
 
         field_str = ','.join(attrs)
 
         # FIXME: This is obviously insecure, but is it worth the effort?
         select_cmd = 'select id, %s from %s %s %s' % (field_str,
-                                                      model_class.__name__,
+                                                      self.__name__,
                                                       where,
                                                       order)
 
@@ -192,7 +196,7 @@ class LiteORM(object):
             row = list(row)
             row = row[1:]
 
-            model = model_class(*row)
+            model = self(*row)
             model.id = id_attr
 
             res_list.append(model)
@@ -202,25 +206,35 @@ class LiteORM(object):
 
 if __name__ == "__main__":
 
-    class User(object):
-        def __init__(self, name, age, email):
+    class User(LiteORM):
+        def __init__(self, db_name, name, age):
+            super(LiteORM, self).__init__(db_name)
             self.id = 0
             self.name = name
             self.age = age
-            self.email = email
 
         def __str__(self):
-            return 'id: %d, name: %s, age: %d, email: %s' % (self.id,
-                                                             self.name,
-                                                             self.age,
-                                                             self.email)
-    user = User('luke', 100, 'mymail')
-    db = LiteORM('test.db')
-    db.create_table(user)
-    db.insert(user)
-    user.name = 'charles'
-    db.update(user)
+            return 'id: %d, name: %s, age: %d' % (self.id, self.name, self.age)
 
-    res = db.select(User, 'name = "charles"')
-    for user in res:
-        print user
+    class Email(LiteORM):
+        def __init__(self, user_id, email):
+            self.id = 0
+            self.user_id = user_id
+            self.email = email
+
+    db = LiteORM('test.db')
+    luke = User('luke', 100)
+
+    db.create_table(luke)
+
+    db.insert(luke)
+    luke.name = 'charles'
+    db.update(luke)
+
+    results = db.select(User, 'name = "charles"')
+    for row in results:
+        print row
+
+    email = Email(luke.id, 'mymail')
+    db.create_table(email)
+    db.insert(email)
