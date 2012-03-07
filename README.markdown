@@ -2,8 +2,9 @@
 Tiny ORM (Object Relational Mapper) for Python and SQLite3
 
 ##Why
-There are several great ORMs for Python (
-[SQLAlchemy](http://www.sqlalchemy.org/), ([SQLObject](http://www.sqlobject.org)))
+There are several great ORMs for Python
+([SQLAlchemy](http://www.sqlalchemy.org/),
+[SQLObject](http://www.sqlobject.org))
 but they can be somewhat big and have several other dependencies.  This isn't
 usually a problem, but I figured this was an opportunity to learn more about
 how ORMs work and do a little Python metaprogramming and inspection.
