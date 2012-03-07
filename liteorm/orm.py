@@ -205,26 +205,46 @@ class LiteORM(object):
 
 
 if __name__ == "__main__":
-
     class User(object):
-        def __init__(self, name, age, email):
+        def __init__(self, name, age):
             self.id = 0
             self.name = name
             self.age = age
+
+        def __str__(self):
+            return 'id: %d, name: %s, age: %d' % (self.id, self.name, self.age)
+
+    class Email(object):
+        def __init__(self, user_id, email):
+            self.id = 0
+            self.user_id = user_id
             self.email = email
 
         def __str__(self):
-            return 'id: %d, name: %s, age: %d, email: %s' % (self.id,
-                                                             self.name,
-                                                             self.age,
-                                                             self.email)
-    user = User('luke', 100, 'mymail')
-    db = LiteORM('test.db')
-    db.create_table(user)
-    db.insert(user)
-    user.name = 'charles'
-    db.update(user)
+            return 'id: %d, email: %s' % (self.id, self.email)
 
-    res = db.select(User, 'name = "charles"')
-    for user in res:
-        print user
+    db = LiteORM('test.db')
+    luke = User('luke', 100)
+
+    db.create_table(luke)
+
+    db.insert(luke)
+    luke.name = 'charles'
+    db.update(luke)
+
+    results = db.select(User, 'name = "charles"')
+    print 'Found users'
+    for row in results:
+        print ' ', row
+
+    email = Email(luke.id, 'mymail')
+    db.create_table(email)
+
+    db.insert(email)
+    email = Email(luke.id, 'mymail2')
+    db.insert(email)
+
+    # Now fetch user's email addresses
+    print "%s's email addresses" % (luke.name)
+    for email in db.select(Email, 'user_id = %s' % (luke.id)):
+        print ' ', email
