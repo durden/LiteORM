@@ -78,6 +78,10 @@ class LiteORM(object):
             if isinstance(value, int):
                 if name == 'id':
                     attrs[name] = 'integer primary key autoincrement'
+                elif name.endswith('_id'):
+                    attrs[name] = 'integer'
+                    key = 'foreign key(%s)' % (name)
+                    attrs[key] = 'references %s(id)' % (name.strip('_id'))
                 else:
                     attrs[name] = 'integer'
             elif isinstance(value, str) or value is None:
